@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Lector de Partituras</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css')}}">
+        <link rel="stylesheet" href="/static/css/styles.css">
+    </head>
+    <body>
+        <h1>Sube imagen de la partitura</h1>
+        <form id = "formulario_subida">
+            <input type="file" id="imagen" accept="image/*">
+            <button type="submit">Procesar</button>
+        </form>
+        <h1> Procesasr la imagen en local</h1>
+        <canvas id = "canvas" style="display: none;"></canvas>
+        <h1>Resultado:</h1>
+        <img id="imagen_procesada" src="" alt="procesada" style="max-width: 100%">
+        <textarea id="texto_base64" readonly style="width: 100%; height: 200px; margin-top: 20px;"></textarea>
+
+        <script>
+            const formulario = document.getElementById('formulario_subida');
+            const imageInput = document.getElementById('imagen'); // Cambiado a 'imageInput' para mayor claridad
+            const Output = document.getElementById('imagen_procesada');
+        
+            formulario.addEventListener('submit', async (e) => {
+                e.preventDefault(); // Prevenir la recarga del formulario
+        
+                // Crear un objeto FormData con la imagen seleccionada
+                const formData = new FormData();
+                formData.append('image', imageInput.files[0]); // Asegurarse de que sea el input correcto
+        
+                try {
+                    // Enviar la imagen al servidor mediante fetch
+                    const response = await fetch('http://127.0.0.1:5000/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+        
+                    if (response.ok) {
+                        const respuesta = await response.json();
+                        console.log(respuesta);
+
+                        const base64Image = respuesta.image_base64;
+                        const filename = respuesta.filename;
+                        //VEMOS CUAL ES LA EXTENSIÓN DEL ARCHIVO (TODO: AMPLIAR)
+                        let imageType = "image/png";
+                        if (filename.endsWith(".jpeg") || filename.endsWith(".jpg")){
+                            imageType = "image/jpeg"
+                        }
+                        const imagen = document.getElementById("imagen_procesada");
+                        imagen.src = `data:${imageType};base64,${base64Image}`;
+                        const txtb64 = document.getElementById("texto_base64");
+                        txtb64.textContent = `data:${imageType};base64,${base64Image}`;
+                    } else {
+                        const error = await response.json(); // Obtener el mensaje de error
+                        alert(error.error); // Mostrar un mensaje de error
+                    }
+                } catch (error) {
+                    alert("Error al enviar la imagen: " + error.message);
+                }
+            });
+        </script>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+<script>
+    let session;
+
+    // Cargar el modelo ONNX
+    async function loadModel() {
+        session = await ort.InferenceSession.create("modelo.onnx");
+        console.log("Modelo ONNX cargado en el navegador.");
+    }
+
+    // Preprocesar imagen para que sea compatible con el modelo
+    async function preprocessImage(imageElement) {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = 28;
+        canvas.height = 28;
+
+        ctx.drawImage(imageElement, 0, 0, 28, 28);
+
+        const imageData = ctx.getImageData(0, 0, 28, 28);
+        const grayscaleData = new Float32Array(1 * 1 * 28 * 28);
+
+        for (let i = 0; i < imageData.data.length; i += 4) {
+            grayscaleData[i / 4] = imageData.data[i] / 255.0; // Normalizar a [0,1]
+        }
+
+        return new ort.Tensor("float32", grayscaleData, [1, 1, 28, 28]);
+    }
+
+    // Realizar inferencia con el modelo ONNX
+    async function predict(imageElement) {
+        const inputTensor = await preprocessImage(imageElement);
+        const feeds = { input: inputTensor };
+        const results = await session.run(feeds);
+        const output = results.output.data;
+
+        console.log("Predicción:", output);
+        alert("Resultado de la predicción: " + output.indexOf(Math.max(...output)));
+    }
+
+    document.getElementById("imagen").addEventListener("change", async (event) => {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = async () => {
+                await predict(img);
+            };
+        };
+        reader.readAsDataURL(event.target.files[0]);
+    });
+
+    loadModel();
+</script>
+
+    </body>
+</html>
