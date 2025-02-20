@@ -105,10 +105,10 @@ for epoch in range(epochs):
     torch.save(model.state_dict(), "modelo_entrenado.pth")
 
 
-    # Exportar el modelo entrenado a ONNX
-    dummy_input = torch.randn(1, 1, 28, 28)  # Entrada simulada del tamaño correcto
-    torch.onnx.export(model, dummy_input, "modelo.onnx", 
-                    input_names=["input"], output_names=["output"],
-                    dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}})
+# Exportar el modelo entrenado a ONNX
+dummy_input = torch.randn(1, 1, 28, 28)  # Entrada simulada del tamaño correcto
+torch.onnx.export(model, dummy_input, "modelo.onnx", 
+                input_names=["input"], output_names=["output"],
+                dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}})
 
-    print("Modelo exportado a ONNX exitosamente: modelo.onnx")
+print("Modelo exportado a ONNX exitosamente: modelo.onnx")
