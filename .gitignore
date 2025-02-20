@@ -1,0 +1,4 @@
+modelo.onnx
+modelo_entrenado.pth
+lib/
+processed/
