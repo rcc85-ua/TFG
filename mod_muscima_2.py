@@ -8,6 +8,11 @@ from torch.utils.data import DataLoader, TensorDataset, random_split
 from torchvision.transforms import functional as TF
 from muscima.io import parse_cropobject_list
 from collections import Counter
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
 
 # Usar GPU si está disponible
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -155,30 +160,30 @@ for epoch in range(num_epochs):
             break
 
 print(f"Entrenamiento terminado en {time.time() - start:.2f} segundos.")
+all_preds = []
+all_labels = []
 
-# Evaluación
 model.eval()
-correct = 0
-total = 0
-class_correct = [0] * len(label_map)
-class_total = [0] * len(label_map)
-
 with torch.no_grad():
     for inputs, labels in test_loader:
         inputs, labels = inputs.to(device), labels.to(device)
         outputs = model(inputs)
         _, predicted = torch.max(outputs, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
+        all_preds.extend(predicted.cpu().numpy())
+        all_labels.extend(labels.cpu().numpy())
 
-        for i in range(labels.size(0)):
-            label = labels[i].item()
-            pred = predicted[i].item()
-            if label == pred:
-                class_correct[label] += 1
-            class_total[label] += 1
+# Matriz de confusión
+cm = confusion_matrix(all_labels, all_preds)
+plt.figure(figsize=(12, 10))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+            xticklabels=list(label_map.keys()), yticklabels=list(label_map.keys()))
+plt.xlabel("Predicción")
+plt.ylabel("Etiqueta real")
+plt.title("Matriz de Confusión")
+plt.tight_layout()
+plt.show()
 
-print(f"\nPrecisión global: {100 * correct / total:.2f}%")
-for i, classname in enumerate(label_map.keys()):
-    acc = 100 * class_correct[i] / class_total[i] if class_total[i] > 0 else 0
-    print(f"Clase '{classname}': Precisión: {acc:.2f}%")
+# Informe de clasificación
+report = classification_report(all_labels, all_preds, target_names=list(label_map.keys()))
+print("\nINFORME DE CLASIFICACIÓN:\n")
+print(report)
